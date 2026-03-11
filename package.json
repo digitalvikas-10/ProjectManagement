@@ -1,0 +1,20 @@
+{
+  "name": "project-management-system",
+  "version": "1.0.0",
+  "description": "a project management application for beginner",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node index.js"
+  },
+  "keywords": [
+    "backend",
+    "api",
+    "creation"
+  ],
+  "author": "Vikas yadav",
+  "license": "ISC",
+  "devDependencies": {
+    "prettier": "3.8.1"
+  }
+}
