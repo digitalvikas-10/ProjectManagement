@@ -27,12 +27,26 @@ const userRegisterValidator = ()=>{
         .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/)
         .withMessage("Password must include uppercase, lowercase, number, and special character"),
 
-        body("fullName")
+        
+          body("fullName")
         .optional()
         .trim()
     ]
 }
 
+const userLoginValidator = ()=>{
+        return [
+            body("email")
+            .notEmpty()
+            .isEmail()
+            .withMessage("Email is required to login user"),
+
+            body("password")
+            .notEmpty()
+            .withMessage("Password is required")
+        ]
+}
+
 export {
-    userRegisterValidator
+    userRegisterValidator,userLoginValidator
 }
