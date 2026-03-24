@@ -2,7 +2,7 @@ import { User } from "../Models/user.models.js";
 import { ApiResponse } from "../utils/api-response.js";
 import { ApiError } from "../utils/api-Error.js";
 import { asyncHandler } from "../utils/async-handler.js";
-import { sendEmail } from "../utils/mail.js";
+import { forgotPasswordMailgenContent, sendEmail } from "../utils/mail.js";
 import { emailVerificationMailgenContent } from "../utils/mail.js";
 import crypto from "crypto"
 import jwt from "jsonwebtoken"
@@ -293,7 +293,98 @@ const refreshAccessToken = asyncHandler(async(req,res)=>{
 
 
 const forgotPassword = asyncHandler(async(req,res)=>{
-       
+       const {email} =req.body;
+
+      const user =  await User.findOne({email})
+
+      if(!user){
+        throw new ApiError(404,"user doesn't exist",[])
+      }
+
+       const {unHashedToken,hashedToken,tokenExpiry} =   user.generateTemporaryToken()
+   
+       user.forgotPasswordToken = hashedToken
+       user.forgotPasswordExpiry = tokenExpiry
+
+       await user.save({validateBeforeSave:false})
+
+       await sendEmail({
+         email:user?.email,
+         subject:"password reset request",
+         mailgenContent: forgotPasswordMailgenContent(
+          user.username,
+          `${process.env.FORGOT_PASSWORD_REDIRECT_URL}//${unHashedToken}`
+         )
+       })
+
+       return res
+              .status(200)
+              .json(
+                new ApiResponse(200,
+                  {message:"password reset mail has been on your mail"}
+                )
+              )
+
 })
 
-export { registerUser, loginUser,logoutUser,getCurrentUser,forgotPassword,verifyEmail,resendEmailVerification,refreshAccessToken};
+const resetForgotPassword = asyncHandler(async(req,res)=>{
+  const {resetToken} = req.params
+  const {newPassword} = req.body
+
+  let hashedToken = crypto
+                    .createHash("sha256")
+                    .update(resetToken)
+                    .digest("hex")
+
+ const user =  await User.findOne({
+    forgotPasswordToken:hashedToken,
+    forgotPasswordExpiry:{$gt:Date.now}
+  })  
+  
+  if(!user){
+    throw new ApiError("Token is invalid or expired")
+  }
+
+  user.forgotPasswordExpiry = undefined
+  user.forgotPasswordToken = undefined
+
+  user.password = newPassword
+  await user.save({validateBeforeSave:false})
+
+  return res 
+        .status(200)
+        .json(
+          new ApiResponse(
+            200,
+            {},
+            "Password reset successfully"
+          )
+        )
+})
+
+const changePassword = asyncHandler(async(req,res)=>{
+   const {oldPassword,newPassword} = req.body
+   
+   const user = await User.findById(req.user._id)
+
+  const isPasswordValid =  await user.isPassowrdCorrect(oldPassword)
+
+  if(!isPasswordValid){
+    throw new ApiError(400,"Invalid old password")
+  }
+  
+  user.password = newPassword()
+  await user.save({validateBeforeSave:false})
+
+  return res
+         .staus(200)
+         .json(
+          new ApiResponse(
+            200,
+            {},
+            "password changed successfully"
+          )
+         )
+})
+
+export { registerUser, loginUser,logoutUser,getCurrentUser,forgotPassword,verifyEmail,resendEmailVerification,refreshAccessToken,resetForgotPassword,changePassword};
